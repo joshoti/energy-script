@@ -15,25 +15,6 @@ def rate_hours(later_date, earlier_date, upper_amount, lower_amount): # earlier 
     print(f"{rate:.2f} kW per hour in the past {time_difference.__str__()}")
     print(f"At current rate {(lower_amount/rate):.2f} hours remaining\n")
 
-def reading_selector(reading_is_entered, log, s_all, s_20, n, older=True):
-    if reading_is_entered == 'y': # If entered, Select index of reading
-        index_of_reading = int(input("S/N: "))
-        meter_reading = log[index_of_reading]
-        amount, hour, minute, day, month = meter_reading
-    elif reading_is_entered.isnumeric(): # Pick the index if entered. Uses less steps
-        if reading_is_entered == '99':
-            return n, 0, 0, True
-        meter_reading = log[int(reading_is_entered)]
-        amount, hour, minute, day, month = meter_reading
-    elif reading_is_entered == 'n': # Input new log
-        order = "Older" if older else "Newer"
-        reading_entry = input(f"\n{order}:\nAmount (24)Hour Mintue Day Month\n").split()
-        hour, minute, day, month = map(int,reading_entry[1:])
-        amount = float(reading_entry[0])
-        s_all[n+1] = [amount, hour, minute, day, month]
-        s_20[n+1] = [amount, hour, minute, day, month]
-        n+=1
-    return n, amount, datetime.datetime(year, month, day, hour, minute), False
 timer2 = (datetime.datetime.now() - start_of_timer).seconds
 def printlog(log):
     """Print saved log, if not empty"""
@@ -58,43 +39,22 @@ def meter_cycler(log, s_all, s_20, n, index, auto=False):
 
         rate_hours(later_full_date, earlier_full_date, upper_amount, lower_amount) if auto else rate_hours(earlier_full_date, later_full_date, lower_amount, upper_amount)
         k+=difference
-    return n, log
     
 def meter(log, s_all, s_20, n, auto=False):
     """Calculates rate of consumption and length of time between readings"""    
     if auto: # IF a function calls this function
         meter_cycler(log, s_all, s_20, n, n, auto)
-        '''
-        k = n-1
-        later_date = s_20[n]
-        lower_amount, lower_hour, lower_month, lower_day, lower_month = later_date
-        later_full_date = datetime.datetime(year, lower_month, lower_day, lower_hour, lower_month)
-        while True:
-            earlier_date = s_20[k]
-            upper_amount, upper_hour, upper_minute, upper_day, upper_month = earlier_date
-            temp_amount, *temp_info = s_20[k+1]
-            if upper_amount < temp_amount: break
-            earlier_full_date = datetime.datetime(year, upper_month, upper_day, upper_hour, upper_minute)
-
-            rate_hours(later_full_date, earlier_full_date, upper_amount, lower_amount)
-            k-=1
-        return n, log'''
+        return n, log
     
     printlog(log)
     while True:
         upper_reading_is_entered = input('Enter desired index [ "q" to quit ] ("n" to enter value) ')
         if upper_reading_is_entered == "q": break
+        elif upper_reading_is_entered == "n":
+            n,log = elog(log, s_all, s_20, n)
+            return n, log
         meter_cycler(log, s_all, s_20, n, int(upper_reading_is_entered))
 
-        '''
-        n, upper_amount, upper_full_date, end_loop = reading_selector(upper_reading_is_entered, log, s_all, s_20, n) # Gets data for calculation
-        if end_loop: break
-
-        lower_reading_is_entered = input('Is your value entered? ( y/n ) ')    
-        n, lower_amount, lower_full_date, end_loop = reading_selector(lower_reading_is_entered, log, s_all, s_20, n, False) # Gets data for calculation
-        if end_loop: break
-        
-        rate_hours(lower_full_date, upper_full_date, upper_amount, lower_amount)'''
         if len(log) < 6: log = view_tail(s_20,n)
     return n, log
 timer3 = (datetime.datetime.now() - start_of_timer).seconds
