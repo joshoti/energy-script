@@ -9,11 +9,14 @@ timer1 = (datetime.datetime.now() - start_of_timer).seconds
 def rate_hours(later_date, earlier_date, upper_amount, lower_amount): # earlier === upper, later === lower
     time_difference = later_date - earlier_date
     hours = time_difference.total_seconds()/3600
-    print(f"\n{hours:.2f} Hours")
+    print(f"{hours:.2f} Hours")
     amount = upper_amount - lower_amount
-    rate = amount/hours
-    print(f"{rate:.2f} kW per hour in the past {time_difference.__str__()}")
-    print(f"At current rate {(lower_amount/rate):.2f} hours remaining\n")
+    rate = round(amount/hours, 2)
+    time_left = round(lower_amount/rate, 2)
+    print(f"{rate} kW per hour in the past {time_difference.__str__()}")
+    print(f"At current rate {time_left} hours remaining")
+    time_left_datetime_format = datetime.timedelta(hours=time_left)
+    print(f'Terminating at: {(time_left_datetime_format + later_date).ctime()[:19]}\n')
 
 timer2 = (datetime.datetime.now() - start_of_timer).seconds
 def printlog(log):
@@ -27,7 +30,7 @@ def meter_cycler(log, s_all, s_20, n, index, auto=False):
     later_date = s_20[index]
     lower_amount, lower_hour, lower_month, lower_day, lower_month = later_date
     later_full_date = datetime.datetime(year, lower_month, lower_day, lower_hour, lower_month)
-    while k <= n:
+    while k <= n:        
         earlier_date = s_20[k]
         upper_amount, upper_hour, upper_minute, upper_day, upper_month = earlier_date
         temp_amount, *temp_info = s_20[k-difference]
@@ -36,7 +39,7 @@ def meter_cycler(log, s_all, s_20, n, index, auto=False):
         else:
             if upper_amount > temp_amount: break
         earlier_full_date = datetime.datetime(year, upper_month, upper_day, upper_hour, upper_minute)
-
+        print(f'\nIndex {k}:', end='     ')
         rate_hours(later_full_date, earlier_full_date, upper_amount, lower_amount) if auto else rate_hours(earlier_full_date, later_full_date, lower_amount, upper_amount)
         k+=difference
     
@@ -48,8 +51,9 @@ def meter(log, s_all, s_20, n, auto=False):
     
     printlog(log)
     while True:
-        upper_reading_is_entered = input('Enter desired index [ "q" to quit ] ("n" to enter value) ')
+        upper_reading_is_entered = input('\nHELP: ["q" to quit ] ("n" to enter value) ["p" to see log]\nEnter desired index:  ')
         if upper_reading_is_entered == "q": break
+        if upper_reading_is_entered == "p": printlog(log); continue
         elif upper_reading_is_entered == "n":
             n,log = elog(log, s_all, s_20, n)
             return n, log
@@ -58,15 +62,27 @@ def meter(log, s_all, s_20, n, auto=False):
         if len(log) < 6: log = view_tail(s_20,n)
     return n, log
 timer3 = (datetime.datetime.now() - start_of_timer).seconds
+
+def interpolate_rate(amount, rate_info, full_date):
+    if type(rate_info) == tuple:
+        name, rate = rate_info
+        print(f'\nUsing {name} at {rate}')
+    else:
+        rate = rate_info
+    time_left = round(amount/rate, 2)
+    time_left_datetime_format = datetime.timedelta(hours=time_left)    
+    if time_left > 24:
+        day = time_left//24
+        hour = time_left-(day*24)
+        print(f"{day} day(s) : {hour:.2f} hour(s) from {full_date.ctime()[:19]}\nTerminating at: {(time_left_datetime_format + full_date).ctime()[:19]}\n")
+    else:
+        print(f"{time_left} hours from {full_date.ctime()[:19]}\nTerminating at: {(time_left_datetime_format + full_date).ctime()[:19]}\n")
+            
 def interpolate(log, s_all, s_20, n):
     """Use different rates to observe consumption of credit"""
     printlog(log)
-    meter_reading = input('Is your value entered? ( y/n ) ')
-    if meter_reading == 'y':
-        index_of_reading = int(input("S/N: "))
-        row_of_data = log[index_of_reading]
-        amount,hour,minute,day,month = row_of_data
-    elif meter_reading.isnumeric():
+    meter_reading = input('Enter desired index? ["n" to enter value] ')
+    if meter_reading.isnumeric():
         row_of_data = log[int(meter_reading)]
         amount,hour,minute,day,month = row_of_data
     elif meter_reading == 'n':
@@ -76,19 +92,18 @@ def interpolate(log, s_all, s_20, n):
         s_all[n+1] = [amount,hour,minute,day,month]
         s_20[n+1] = [amount,hour,minute,day,month]
         n+=1
-        if len(log) < 6: log = view_tail(s_20,n)
-    rate = 1    
+        if len(log) < 6: log = view_tail(s_20,n)   
     full_date = datetime.datetime(2022,month,day,hour,minute)
-    while True:
-        rate = float(input("Rate: (99 to quit) \n"))
-        if rate == 99: break
-        time = amount/rate
-        if time > 24:
-            day = time//24
-            hour = time-(day*24)
-            print(f"{day} day(s) : {hour:.2f} hour(s)\n")
-        else:
-            print(f"{time:.2f} hours from {full_date}\n")
+    day_rate, overnight_rate = 2.0, 2.81
+    average_rate = round((day_rate + overnight_rate)/2 ,2)
+    rates = [("Day Rate", day_rate), ("Night Rate", overnight_rate), ("Average Rate", average_rate), ]
+    for rate_info in rates:
+        interpolate_rate(amount, rate_info, full_date)
+    while True:        
+        rate = input('Rate: ["q" to quit] ("p" to see log) \n')
+        if rate == 'q': break
+        if rate == 'p': printlog(log); continue
+        interpolate_rate(amount, float(rate), full_date)
     return n, log
 
 def elog(log, s_all, s_20, n):
@@ -97,7 +112,7 @@ def elog(log, s_all, s_20, n):
     repeat = input("How many values do you want to add ")
     repeat = 1 if repeat == '' else int(repeat)
     for _ in range(repeat):
-        reading_entry = input(f"\nEntry {_+1}:\nAmount (24)Hour Mintue Day Month\n").split()
+        reading_entry = input(f"\nEntry {_+1} out of {repeat}:\nAmount (24)Hour Mintue Day Month\n").split()
         if len(reading_entry) == 0: break
         elif reading_entry[-1].lower() == 'n': reading_entry.pop(); reading_entry.extend(s_20[n][-2:]); reading_entry[-2] += 1 # Fills the next date if it sees n (next date)
         elif 3 <= len(reading_entry) < 5: reading_entry.extend(s_20[n][len(reading_entry)-5:])  # Fills the appropriate date if entry is incomplete
