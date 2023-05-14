@@ -1,4 +1,4 @@
-name: energy_workflow
+name: Energy Workflow
 
 on: repository_dispatch
 jobs:
