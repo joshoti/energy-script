@@ -5,6 +5,8 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "Triggering Wokflow 2"
+      - run: echo "Triggering [Energy] Wokflow 2"
+      - run: echo "Event type -> ${{ github.event.event_type }}"
+      - run: echo "Payload repo -> ${{ github.event.client_payload.repository }}"
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
