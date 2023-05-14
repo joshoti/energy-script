@@ -1,8 +1,8 @@
-name: energy
+name: energy_workflow
 
-on: [repository_dispatch]
+on: repository_dispatch
 jobs:
-  cypress-run:
+  run:
     runs-on: ubuntu-latest
     steps:
       - run: echo "Triggering Wokflow 2"
